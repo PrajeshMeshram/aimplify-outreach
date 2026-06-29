@@ -1,4 +1,4 @@
-import { callOpenRouter, extractJSON } from '../../lib/openrouter'
+import { callOpenRouter, extractJSON, MODELS } from '../../lib/openrouter'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
@@ -24,7 +24,7 @@ Check:
 Reply ONLY with JSON, no markdown, start with {, end with }:
 {"verified": true, "confidence": "high", "note": "reason in one line", "corrected_email": "corrected email or same as input"}`
 
-    const { text, usage } = await callOpenRouter(systemPrompt, userPrompt, 200)
+    const { text, usage } = await callOpenRouter(systemPrompt, userPrompt, MODELS.observer, 200)
     const result = extractJSON(text, 'object')
 
     res.status(200).json({ ...result, cost_usd: usage.cost_usd, model: usage.model })

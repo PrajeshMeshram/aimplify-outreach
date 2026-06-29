@@ -1,4 +1,4 @@
-import { callOpenRouter, extractJSON } from '../../lib/openrouter'
+import { callOpenRouter, extractJSON, MODELS } from '../../lib/openrouter'
 import { getExistingCompanies, isDuplicate } from '../../lib/sheets'
 
 export default async function handler(req, res) {
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
       ? `IMPORTANT: Do NOT include these companies — already contacted: ${existingCompanies.join(', ')}.`
       : ''
 
-    const systemPrompt = `You are a B2B sales research assistant. Output ONLY raw JSON arrays with no markdown, no code fences, no explanation. Your entire response must be parseable by JSON.parse() directly. Start with [ and end with ].`
+    const systemPrompt = `You are a B2B sales research assistant. Output ONLY raw JSON arrays with no markdown, no code fences, no explanation. Start with [ and end with ].`
 
     const userPrompt = `${exclusionNote}
 
@@ -41,7 +41,7 @@ Return a JSON array only. No markdown. Start with [ end with ]:
   "email_body": "4 paragraphs: 1) genuine company observation, 2) their specific marketing challenge, 3) short intro about being a GTM consultancy that helped a B2B SaaS cut CAC by 86 percent, 4) Would love to swap notes for 20 minutes. No pitch, just two marketers talking shop. No em dashes. Human tone. Under 120 words."
 }]`
 
-    const { text, usage } = await callOpenRouter(systemPrompt, userPrompt, 4000)
+    const { text, usage } = await callOpenRouter(systemPrompt, userPrompt, MODELS.research, 4000)
     const prospects = extractJSON(text, 'array')
 
     const filtered = []
