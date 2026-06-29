@@ -1,4 +1,4 @@
-# AImplify Outreach Agent
+# B2B Outreach Agent
 
 AI-powered B2B outreach system. Finds verified marketing contacts, writes personalised emails, tracks follow-ups in Google Sheets.
 
@@ -30,8 +30,8 @@ AI-powered B2B outreach system. Finds verified marketing contacts, writes person
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/YOUR_USERNAME/aimplify-outreach
-cd aimplify-outreach
+git clone https://github.com/PrajeshMeshram/b2b-outreach
+cd b2b-outreach
 npm install
 ```
 
