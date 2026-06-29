@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import { upsertUser } from '../../../lib/users'
 
 export const authOptions = {
   providers: [
@@ -9,9 +10,7 @@ export const authOptions = {
       authorization: {
         params: {
           scope: [
-            'openid',
-            'email',
-            'profile',
+            'openid', 'email', 'profile',
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive.file',
             'https://www.googleapis.com/auth/gmail.compose'
@@ -23,24 +22,37 @@ export const authOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async signIn({ user, account, profile }) {
+      try {
+        await upsertUser({
+          email: user.email,
+          name: user.name,
+          avatar: user.image,
+          googleId: profile.sub,
+          country: null
+        })
+      } catch (e) {
+        console.error('Supabase upsert error:', e.message)
+      }
+      return true
+    },
+    async jwt({ token, account, profile }) {
       if (account) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
         token.expiresAt = account.expires_at
+        token.googleId = profile?.sub
       }
       return token
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken
       session.refreshToken = token.refreshToken
-      session.expiresAt = token.expiresAt
+      session.googleId = token.googleId
       return session
     }
   },
-  pages: {
-    signIn: '/login'
-  },
+  pages: { signIn: '/login' },
   secret: process.env.NEXTAUTH_SECRET
 }
 

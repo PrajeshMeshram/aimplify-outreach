@@ -120,7 +120,7 @@ export default function Pricing() {
   return (
     <>
       <Head>
-        <title>Pricing — B2B Outreach Agent</title>
+        <title>Pricing — Leads Genie</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
@@ -130,7 +130,7 @@ export default function Pricing() {
           <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontWeight: 600, fontSize: 16, color: '#1a1a1a' }}>B2B Outreach</span>
+                <span style={{ fontWeight: 600, fontSize: 16, color: '#1a1a1a' }}>Leads Genie</span>
                 <span style={{ fontSize: 12, color: '#888', background: '#f0f0ef', padding: '2px 8px', borderRadius: 20 }}>Agent</span>
               </Link>
             </div>

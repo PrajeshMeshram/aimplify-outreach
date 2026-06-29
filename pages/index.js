@@ -146,14 +146,14 @@ export default function Home() {
 
   return (
     <>
-      <Head><title>B2B Outreach Agent</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+      <Head><title>Leads Genie</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
       <div style={{ minHeight: '100vh', background: '#f8f8f7', fontFamily: 'Inter, system-ui, sans-serif' }}>
 
         <div style={{ background: BRAND, padding: '0 2rem' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 54 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontWeight: 600, fontSize: 15, color: '#fff' }}>B2B Outreach</span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 20 }}>Agent</span>
+              <span style={{ fontWeight: 600, fontSize: 15, color: '#fff' }}>Leads Genie</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 20 }}>Lite</span>
             </div>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <Link href="/pricing" style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', textDecoration: 'none', padding: '6px 12px' }}>Pricing</Link>

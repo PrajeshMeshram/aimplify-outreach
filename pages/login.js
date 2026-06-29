@@ -5,7 +5,7 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Sign in — B2B Outreach</title>
+        <title>Sign in — Leads Genie</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
@@ -20,7 +20,7 @@ export default function Login() {
         padding: '2rem'
       }}>
         <div style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>B2B Outreach</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>Leads Genie</div>
           <h1 style={{ fontSize: 36, fontWeight: 500, color: '#fff', lineHeight: 1.2, marginBottom: 12 }}>Find verified prospects.<br />Send emails that convert.</h1>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', maxWidth: 360 }}>Three AI agents — research, verify, write. All connected to your Gmail and Google Sheets.</p>
         </div>
