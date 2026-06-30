@@ -3,6 +3,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
+import OnboardingModal from '../components/OnboardingModal'
 
 // ---- Design tokens (Apple OS inspired: neutral surfaces, single accent, subtle depth) ----
 const ACCENT = '#A1003d'
@@ -38,11 +39,30 @@ export default function Home() {
   const [totalCost, setTotalCost] = useState(0)
   const [exportStatus, setExportStatus] = useState(null)
   const [agentStatus, setAgentStatus] = useState({ research: 'idle', observer: 'idle', email: 'idle' })
+  const [profile, setProfile] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login')
-    if (status === 'authenticated') loadContacts()
+    if (status === 'authenticated') {
+      loadContacts()
+      loadProfile()
+    }
   }, [status])
+
+  const loadProfile = async () => {
+    setProfileLoading(true)
+    try {
+      const res = await fetch('/api/profile')
+      if (res.status === 401) { router.push('/login'); return }
+      const data = await res.json()
+      setProfile(data.profile)
+    } catch (e) {
+      setProfile(null)
+    } finally {
+      setProfileLoading(false)
+    }
+  }
 
   const addLog = (agent, msg) => {
     const time = new Date().toTimeString().slice(0, 8)
@@ -60,6 +80,10 @@ export default function Home() {
   const toggle = (arr, setArr, val) => setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
 
   const runAgents = async () => {
+    if (!profile || !profile.onboarded) {
+      addLog('system', 'Set up your sender profile first — see the popup.')
+      return
+    }
     if (!stages.length || !geos.length) {
       addLog('system', 'Select at least one funding stage and one geography before running.')
       return
@@ -186,7 +210,7 @@ export default function Home() {
   const repliedCount = contacts.filter(c => c.status === 'Replied').length
   const canRun = stages.length > 0 && geos.length > 0 && industries.length > 0 && !running
 
-  if (status === 'loading' || status === 'unauthenticated') {
+  if (status === 'loading' || status === 'unauthenticated' || profileLoading) {
     return (
       <div style={{ minHeight: '100vh', background: CANVAS, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: TEXT_TERTIARY, fontSize: 13 }}>Loading</div>
@@ -241,6 +265,9 @@ export default function Home() {
 
   return (
     <>
+      {(!profile || !profile.onboarded) && (
+        <OnboardingModal onComplete={loadProfile} existing={profile} />
+      )}
       <Head>
         <title>Leads Genie</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -276,6 +303,12 @@ export default function Home() {
                 {session.user.email}
               </p>
             )}
+            <button
+              onClick={() => setProfile(p => ({ ...p, onboarded: false }))}
+              style={{ width: '100%', textAlign: 'left', padding: '9px 12px', fontSize: 14, color: TEXT_SECONDARY, border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer' }}
+            >
+              Edit sender profile
+            </button>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               style={{ width: '100%', textAlign: 'left', padding: '9px 12px', fontSize: 14, color: TEXT_SECONDARY, border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer' }}

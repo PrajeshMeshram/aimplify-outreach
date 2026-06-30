@@ -86,3 +86,10 @@ create index if not exists idx_contacts_status on contacts(user_id, status);
 
 alter table contacts enable row level security;
 create policy "contacts_own_rows" on contacts for select using (user_id = (select id from users where google_id = current_setting('app.google_id', true)));
+
+-- Per-user sender profile — used by email agent instead of hardcoded company data
+alter table users add column if not exists company_name text;
+alter table users add column if not exists sender_name text;
+alter table users add column if not exists value_prop text;
+alter table users add column if not exists proof_point text;
+alter table users add column if not exists onboarded boolean default false;
