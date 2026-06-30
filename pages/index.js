@@ -292,6 +292,7 @@ export default function Home() {
           <div style={{ flex: 1 }}>
             {navItem('agent', 'Agent')}
             {navItem('crm', 'CRM', dueCount)}
+            {navItem('profile', 'Profile')}
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <div style={{ padding: '9px 12px', fontSize: 14, color: TEXT_SECONDARY, borderRadius: 8, cursor: 'pointer' }}>Pricing</div>
             </Link>
@@ -303,12 +304,6 @@ export default function Home() {
                 {session.user.email}
               </p>
             )}
-            <button
-              onClick={() => setProfile(p => ({ ...p, onboarded: false }))}
-              style={{ width: '100%', textAlign: 'left', padding: '9px 12px', fontSize: 14, color: TEXT_SECONDARY, border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer' }}
-            >
-              Edit sender profile
-            </button>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               style={{ width: '100%', textAlign: 'left', padding: '9px 12px', fontSize: 14, color: TEXT_SECONDARY, border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer' }}
@@ -544,9 +539,112 @@ export default function Home() {
                 </div>
               </>
             )}
+
+            {tab === 'profile' && <ProfileTab profile={profile} onSaved={loadProfile} />}
           </div>
         </div>
       </div>
     </>
+  )
+}
+
+function ProfileTab({ profile, onSaved }) {
+  const [companyName, setCompanyName] = useState(profile?.company_name || '')
+  const [senderName, setSenderName] = useState(profile?.sender_name || profile?.name || '')
+  const [valueProp, setValueProp] = useState(profile?.value_prop || '')
+  const [proofPoint, setProofPoint] = useState(profile?.proof_point || '')
+  const [emailSignature, setEmailSignature] = useState(profile?.email_signature || '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  const canSave = companyName.trim() && senderName.trim() && valueProp.trim()
+
+  const save = async () => {
+    if (!canSave) return
+    setSaving(true); setError(''); setSaved(false)
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyName, senderName, valueProp, proofPoint, emailSignature })
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Something went wrong'); setSaving(false); return }
+      setSaved(true)
+      await onSaved()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const field = (label, value, setValue, placeholder, optional, multiline) => (
+    <div style={{ marginBottom: 18 }}>
+      {label && (
+        <label style={{ fontSize: 12, fontWeight: 500, color: TEXT_TERTIARY, marginBottom: 6, display: 'block' }}>
+          {label}{optional && <span style={{ fontWeight: 400 }}> (optional)</span>}
+        </label>
+      )}
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={e => { setValue(e.target.value); setSaved(false) }}
+          placeholder={placeholder}
+          rows={4}
+          style={{ width: '100%', fontSize: 14, padding: '10px 12px', border: `1px solid ${BORDER}`, borderRadius: 8, background: '#f9f9fa', color: TEXT_PRIMARY, fontFamily: 'inherit', resize: 'vertical' }}
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={e => { setValue(e.target.value); setSaved(false) }}
+          placeholder={placeholder}
+          style={{ width: '100%', fontSize: 14, padding: '10px 12px', border: `1px solid ${BORDER}`, borderRadius: 8, background: '#f9f9fa', color: TEXT_PRIMARY }}
+        />
+      )}
+    </div>
+  )
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <p style={{ fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: '-0.02em', marginBottom: 4 }}>Profile</p>
+      <p style={{ fontSize: 13, color: TEXT_TERTIARY, marginBottom: 24 }}>
+        This is used to write your outreach emails. Only you see this — it's never shared with other users.
+      </p>
+
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: RADIUS, padding: '1.5rem', boxShadow: SHADOW_SM }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.04em' }}>About you</p>
+        {field('Your name', senderName, setSenderName, 'e.g. Priya Sharma')}
+        {field('Your company', companyName, setCompanyName, 'e.g. Acme Consulting')}
+        {field('What you offer', valueProp, setValueProp, 'e.g. GTM consulting for B2B SaaS companies')}
+        {field('Your proof point', proofPoint, setProofPoint, 'e.g. Helped a client cut CAC by 40%', true)}
+      </div>
+
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: RADIUS, padding: '1.5rem', boxShadow: SHADOW_SM, marginTop: 16 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: TEXT_PRIMARY, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email signature</p>
+        <p style={{ fontSize: 12, color: TEXT_TERTIARY, marginBottom: 14 }}>Appended to the end of every drafted email, after "Best,". Plain text only — phone, title, links, etc.</p>
+        {field(null, emailSignature, setEmailSignature, 'Priya Sharma\nFounder, Acme Consulting\n+91 98765 43210\nacmeconsulting.com', true, true)}
+      </div>
+
+      {error && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 12 }}>{error}</p>}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+        <button
+          onClick={save}
+          disabled={!canSave || saving}
+          style={{
+            padding: '11px 24px', fontSize: 14, fontWeight: 600,
+            background: !canSave || saving ? '#e8e8ea' : BRAND,
+            color: !canSave || saving ? TEXT_TERTIARY : '#fff',
+            border: 'none', borderRadius: 10, cursor: !canSave || saving ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
+        {saved && <span style={{ fontSize: 13, color: '#1a7d3a' }}>Saved</span>}
+      </div>
+    </div>
   )
 }

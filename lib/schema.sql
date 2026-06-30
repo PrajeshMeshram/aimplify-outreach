@@ -93,3 +93,6 @@ alter table users add column if not exists sender_name text;
 alter table users add column if not exists value_prop text;
 alter table users add column if not exists proof_point text;
 alter table users add column if not exists onboarded boolean default false;
+
+-- Email signature, appended to every drafted email
+alter table users add column if not exists email_signature text;

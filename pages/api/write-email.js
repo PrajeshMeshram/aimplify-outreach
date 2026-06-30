@@ -51,7 +51,7 @@ Email structure (4 short paragraphs, under 120 words total):
 3. ${proofLine}
 4. "Would love to swap notes for 20 minutes. No pitch, just a quick conversation."
 
-Rules: subject line uses their first name, max 8 words, no em dashes, creates curiosity. No bullet points. Natural human tone. No AI-sounding phrases. Sign the email as ${profile.sender_name}.
+Rules: subject line uses their first name, max 8 words, no em dashes, creates curiosity. No bullet points. Natural human tone. No AI-sounding phrases. End the email body with just "Best," on its own line — do NOT add a full signature block, name, title, or contact details after it. That will be appended separately.
 
 Return ONLY JSON: {"subject": "subject line", "body": "full email body with paragraph breaks as newlines"}`
 
@@ -65,13 +65,20 @@ Return ONLY JSON: {"subject": "subject line", "body": "full email body with para
 
     if (!emailContent.subject || !emailContent.body) throw new Error('Email agent response missing subject or body')
 
+    // Append the user's real signature (or a simple fallback) rather than trusting the model to format one
+    const signatureBlock = profile.email_signature && profile.email_signature.trim()
+      ? profile.email_signature.trim()
+      : profile.sender_name
+
+    const fullBody = `${emailContent.body.replace(/\n?Best,?\s*$/i, '').trim()}\n\nBest,\n${signatureBlock}`
+
     let gmailDraftId = null
     let draftError = null
     try {
       gmailDraftId = await createGmailDraft(token, {
         to: prospect.email,
         subject: emailContent.subject,
-        body: emailContent.body
+        body: fullBody
       })
     } catch (gErr) {
       console.error('Gmail draft creation failed:', gErr.message)
@@ -80,7 +87,7 @@ Return ONLY JSON: {"subject": "subject line", "body": "full email body with para
 
     res.status(200).json({
       subject: emailContent.subject,
-      body: emailContent.body,
+      body: fullBody,
       gmailDraftId,
       draftError,
       cost_usd: usage.cost_usd

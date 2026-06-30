@@ -1,11 +1,11 @@
 import { getAuthedRequest } from '../../lib/auth-helper'
 import { getSenderProfile, saveSenderProfile } from '../../lib/users'
 
-const MAX_LEN = { companyName: 100, senderName: 60, valueProp: 200, proofPoint: 200 }
+const MAX_LEN = { companyName: 100, senderName: 60, valueProp: 200, proofPoint: 200, emailSignature: 600 }
 
 function validateProfile(body) {
   if (!body || typeof body !== 'object') return 'Invalid request body'
-  const { companyName, senderName, valueProp, proofPoint } = body
+  const { companyName, senderName, valueProp, proofPoint, emailSignature } = body
   if (!companyName || !companyName.trim()) return 'Company name is required'
   if (!senderName || !senderName.trim()) return 'Your name is required'
   if (!valueProp || !valueProp.trim()) return 'What you offer is required'
@@ -13,6 +13,7 @@ function validateProfile(body) {
   if (senderName.length > MAX_LEN.senderName) return 'Name is too long'
   if (valueProp.length > MAX_LEN.valueProp) return 'Value proposition is too long'
   if (proofPoint && proofPoint.length > MAX_LEN.proofPoint) return 'Proof point is too long'
+  if (emailSignature && emailSignature.length > MAX_LEN.emailSignature) return 'Email signature is too long (max 600 characters)'
   return null
 }
 
@@ -36,12 +37,13 @@ export default async function handler(req, res) {
     if (validationError) return res.status(400).json({ error: validationError })
 
     try {
-      const { companyName, senderName, valueProp, proofPoint } = req.body
+      const { companyName, senderName, valueProp, proofPoint, emailSignature } = req.body
       await saveSenderProfile(googleId, {
         companyName: companyName.trim(),
         senderName: senderName.trim(),
         valueProp: valueProp.trim(),
-        proofPoint: (proofPoint || '').trim()
+        proofPoint: (proofPoint || '').trim(),
+        emailSignature: (emailSignature || '').trim()
       })
       return res.status(200).json({ success: true })
     } catch (err) {
