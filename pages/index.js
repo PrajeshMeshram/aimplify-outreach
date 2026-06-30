@@ -22,7 +22,7 @@ export default function Home() {
   const [contacts, setContacts] = useState([])
   const [tab, setTab] = useState('agent')
   const [totalCost, setTotalCost] = useState(0)
-  const [sheetId, setSheetId] = useState(null)
+  const [exportStatus, setExportStatus] = useState(null)
   const [agentStatus, setAgentStatus] = useState({ research: 'idle', observer: 'idle', email: 'idle' })
 
   useEffect(() => {
@@ -41,7 +41,6 @@ export default function Home() {
     if (!res.ok) return
     const data = await res.json()
     if (data.contacts) setContacts(data.contacts)
-    if (data.sheetId) setSheetId(data.sheetId)
   }
 
   const toggle = (arr, setArr, val) => setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
@@ -56,15 +55,14 @@ export default function Home() {
 
     setAgentStatus({ research: 'running', observer: 'idle', email: 'idle' })
     addLog('research', `Starting — ${stages.join(', ')} | ${geos.join(', ')}`)
-    addLog('research', 'Reading your Google Sheet — checking existing contacts...')
+    addLog('research', 'Checking your CRM for already-contacted companies...')
 
     const resRes = await fetch('/api/research', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stages, geos, industries, roles: ['Head of Marketing', 'VP Marketing', 'Director Marketing', 'CMO', 'CEO'], count })
+      body: JSON.stringify({ stages, geos, industries, count })
     })
     const resData = await resRes.json()
     if (resData.error) { addLog('research', `Error: ${resData.error}`); setAgentStatus(s => ({ ...s, research: 'error' })); setRunning(false); return }
-    if (resData.sheetId) setSheetId(resData.sheetId)
     cost += parseFloat(resData.usage?.cost_usd || 0)
     addLog('research', `Skipped ${resData.existingSkipped} already-contacted companies`)
     addLog('research', `Found ${resData.prospects.length} new prospects`)
@@ -95,29 +93,49 @@ export default function Home() {
       return
     }
 
-    addLog('email', `Writing and saving ${verified.length} emails...`)
+    addLog('email', `Writing emails and creating Gmail drafts for ${verified.length} prospects...`)
 
-    const activeSheetId = resData.sheetId || sheetId
-    let savedCount = 0
+    const finalProspects = []
 
     for (const p of verified) {
+      addLog('email', `Writing email for ${p.name}...`)
+      const writeRes = await fetch('/api/write-email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospect: p })
+      })
+      const writeData = await writeRes.json()
+
+      if (!writeRes.ok) {
+        addLog('email', `Failed to write email for ${p.name}: ${writeData.error || 'unknown error'}`)
+        continue
+      }
+
+      cost += parseFloat(writeData.cost_usd || 0)
+
+      if (writeData.gmailDraftId) {
+        addLog('email', `✓ Gmail draft created for ${p.name}`)
+      } else if (writeData.draftError) {
+        addLog('email', `⚠ ${p.name}: ${writeData.draftError}`)
+      }
+
       const saveRes = await fetch('/api/save-contact', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contact: p, sheetId: activeSheetId })
+        body: JSON.stringify({ contact: p, gmailDraftId: writeData.gmailDraftId })
       })
-      const saveData = await saveRes.json()
+
       if (saveRes.ok) {
-        savedCount++
-        addLog('email', `Saved ${p.name} to your Google Sheet`)
+        addLog('email', `Saved ${p.name} to your CRM`)
+        finalProspects.push({ ...p, subject_line: writeData.subject, email_body: writeData.body, gmailDraftId: writeData.gmailDraftId })
       } else {
+        const saveData = await saveRes.json()
         addLog('email', `Failed to save ${p.name}: ${saveData.error || 'unknown error'}`)
       }
     }
 
     setAgentStatus(s => ({ ...s, email: 'done' }))
-    setProspects(verified)
+    setProspects(finalProspects)
     setTotalCost(cost.toFixed(4))
-    addLog('email', `Done. ${verified.length} prospects ready. Total cost: $${cost.toFixed(4)}`)
+    addLog('email', `Done. ${finalProspects.length} prospects ready in Gmail drafts. Total cost: $${cost.toFixed(4)}`)
     await loadContacts()
     setRunning(false)
   }
@@ -127,18 +145,15 @@ export default function Home() {
     return <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: c, marginRight: 6 }} />
   }
 
-  const daysAgo = (dateStr) => {
-    if (!dateStr) return 0
-    const parts = dateStr.split('-')
-    if (parts.length !== 3) return 0
-    const [d, m, y] = parts
-    return Math.floor((Date.now() - new Date(`${y}-${m}-${d}`)) / 86400000)
+  const daysAgo = (isoString) => {
+    if (!isoString) return 0
+    return Math.floor((Date.now() - new Date(isoString)) / 86400000)
   }
 
   const needsFollowup = (c) => {
     if (c.status === 'Replied' || c.status === 'Closed') return null
-    if (!c.sent2 && daysAgo(c.sent1) >= 3) return 2
-    if (c.sent2 && !c.sent3 && daysAgo(c.sent2) >= 4) return 3
+    if (!c.sent2_at && daysAgo(c.sent1_at) >= 3) return 2
+    if (c.sent2_at && !c.sent3_at && daysAgo(c.sent2_at) >= 4) return 3
     return null
   }
 
@@ -150,6 +165,21 @@ export default function Home() {
   const handleStatus = async (c, action) => {
     await fetch('/api/contacts', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: c.email, action }) })
     await loadContacts()
+  }
+
+  const exportToSheets = async () => {
+    setExportStatus('exporting')
+    try {
+      const res = await fetch('/api/export-sheet', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setExportStatus({ success: true, ...data })
+      } else {
+        setExportStatus({ success: false, error: data.error })
+      }
+    } catch (e) {
+      setExportStatus({ success: false, error: e.message })
+    }
   }
 
   const dueCount = contacts.filter(c => needsFollowup(c)).length
@@ -192,16 +222,12 @@ export default function Home() {
           </div>
         </div>
 
-        {sheetId && (
-          <div style={{ background: '#fff0f3', borderBottom: '1px solid #ffd6e0', padding: '8px 2rem' }}>
-            <div style={{ maxWidth: 1100, margin: '0 auto', fontSize: 12, color: '#5e0023', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>✓</span>
-              <span>Connected to your Google Sheet —</span>
-              <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noreferrer" style={{ color: '#A1003d', fontWeight: 500 }}>Open sheet ↗</a>
-              <span style={{ color: '#aaa', marginLeft: 4 }}>· Gmail connected via your Google account</span>
-            </div>
+        <div style={{ background: '#fff0f3', borderBottom: '1px solid #ffd6e0', padding: '8px 2rem' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', fontSize: 12, color: '#5e0023', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>✓</span>
+            <span>Contacts stored in your Leads Genie CRM · Gmail drafts created via your Google account</span>
           </div>
-        )}
+        </div>
 
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '1.5rem 2rem' }}>
           {tab === 'agent' && (
@@ -298,6 +324,21 @@ export default function Home() {
 
           {tab === 'crm' && (
             <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <p style={{ fontSize: 13, color: '#888' }}>{contacts.length} contact{contacts.length !== 1 ? 's' : ''} in your CRM</p>
+                <button onClick={exportToSheets} disabled={exportStatus === 'exporting' || contacts.length === 0} style={{ fontSize: 12, padding: '6px 14px', border: '1px solid #e5e5e3', background: '#fff', color: '#5e0023', borderRadius: 6, cursor: contacts.length === 0 ? 'not-allowed' : 'pointer', opacity: contacts.length === 0 ? 0.5 : 1 }}>
+                  {exportStatus === 'exporting' ? 'Exporting...' : 'Export to Google Sheets'}
+                </button>
+              </div>
+
+              {exportStatus && exportStatus !== 'exporting' && (
+                <div style={{ background: exportStatus.success ? '#f0fdf4' : '#fef2f2', border: `1px solid ${exportStatus.success ? '#bbf7d0' : '#fecaca'}`, borderRadius: 8, padding: '10px 14px', marginBottom: '1rem', fontSize: 12, color: exportStatus.success ? '#16a34a' : '#dc2626' }}>
+                  {exportStatus.success
+                    ? <>Exported {exportStatus.exported} new contact{exportStatus.exported !== 1 ? 's' : ''} ({exportStatus.total} total). <a href={exportStatus.sheetUrl} target="_blank" rel="noreferrer" style={{ color: '#16a34a', fontWeight: 500 }}>Open sheet ↗</a></>
+                    : `Export failed: ${exportStatus.error}`}
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: '1.5rem' }}>
                 {[
                   { label: 'Total contacted', val: contacts.length, color: '#1a1a1a' },
@@ -331,7 +372,8 @@ export default function Home() {
                             <p style={{ fontWeight: 500, fontSize: 14, color: '#1a1a1a' }}>{c.name}</p>
                             <p style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{c.role} · {c.company} · {c.country}</p>
                             <p style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{c.email}</p>
-                            {fu && <p style={{ fontSize: 11, color: '#f59e0b', marginTop: 4 }}>⏰ Follow-up {fu === 2 ? '1' : '2'} due ({daysAgo(c.sent1)} days since first email)</p>}
+                            {fu && <p style={{ fontSize: 11, color: '#f59e0b', marginTop: 4 }}>⏰ Follow-up {fu === 2 ? '1' : '2'} due ({daysAgo(c.sent1_at)} days since first email)</p>}
+                            {c.gmail_draft_id && <p style={{ fontSize: 11, color: '#10b981', marginTop: 2 }}>✓ Gmail draft ready</p>}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 5, flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -343,7 +385,7 @@ export default function Home() {
                         {fu && <button onClick={() => handleFollowup(c, fu)} style={{ fontSize: 11, padding: '5px 10px', border: '1px solid #fbbf24', background: '#fffbeb', color: '#b45309', borderRadius: 6, cursor: 'pointer' }}>Send follow-up {fu === 2 ? '1' : '2'}</button>}
                         {c.status !== 'Replied' && <button onClick={() => handleStatus(c, 'replied')} style={{ fontSize: 11, padding: '5px 10px', border: '1px solid #e5e5e3', background: '#fff', color: '#555', borderRadius: 6, cursor: 'pointer' }}>Mark replied</button>}
                         {c.status !== 'Closed' && <button onClick={() => handleStatus(c, 'closed')} style={{ fontSize: 11, padding: '5px 10px', border: '1px solid #e5e5e3', background: '#fff', color: '#555', borderRadius: 6, cursor: 'pointer' }}>Close</button>}
-                        {sheetId && <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: '5px 10px', border: '1px solid #e5e5e3', background: '#fff', color: '#555', borderRadius: 6, cursor: 'pointer', textDecoration: 'none' }}>View in sheet ↗</a>}
+                        {c.gmail_draft_id && <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: '5px 10px', border: '1px solid #e5e5e3', background: '#fff', color: '#555', borderRadius: 6, cursor: 'pointer', textDecoration: 'none' }}>Open in Gmail ↗</a>}
                       </div>
                     </div>
                   )

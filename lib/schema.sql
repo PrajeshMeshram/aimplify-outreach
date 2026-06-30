@@ -59,3 +59,30 @@ alter table usage enable row level security;
 -- Users can only read their own row
 create policy "users_own_row" on users for select using (google_id = current_setting('app.google_id', true));
 create policy "usage_own_rows" on usage for select using (user_id = (select id from users where google_id = current_setting('app.google_id', true)));
+
+-- Contacts table — now the PRIMARY CRM storage (Google Sheets becomes export-only)
+create table if not exists contacts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  company text not null,
+  name text not null,
+  email text not null,
+  role text,
+  stage text,
+  country text,
+  industry text,
+  gmail_draft_id text,
+  sent1_at timestamptz,
+  sent2_at timestamptz,
+  sent3_at timestamptz,
+  status text default 'Sent' check (status in ('Sent','Follow-up 2 Sent','Follow-up 3 Sent','Replied','Closed')),
+  notes text,
+  created_at timestamptz default now(),
+  unique(user_id, email)
+);
+
+create index if not exists idx_contacts_user_id on contacts(user_id);
+create index if not exists idx_contacts_status on contacts(user_id, status);
+
+alter table contacts enable row level security;
+create policy "contacts_own_rows" on contacts for select using (user_id = (select id from users where google_id = current_setting('app.google_id', true)));

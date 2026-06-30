@@ -1,7 +1,7 @@
 import { getAuthedRequest } from '../../lib/auth-helper'
 import { callOpenRouter, extractJSON, MODELS } from '../../lib/openrouter'
-import { getExistingCompanies, isDuplicate, getOrCreateSheet, getSheetContacts } from '../../lib/sheets'
-import { checkAndIncrementRuns, trackApiCost, saveSheetId } from '../../lib/users'
+import { getExistingCompanyNames, isDuplicateContact } from '../../lib/contacts'
+import { checkAndIncrementRuns, trackApiCost, getUser } from '../../lib/users'
 
 const VALID_STAGES = ['Series A', 'Series B', 'Series C']
 const VALID_GEOS = ['India', 'USA', 'EU', 'UK', 'UAE']
@@ -24,14 +24,13 @@ export default async function handler(req, res) {
 
   const auth = await getAuthedRequest(req, res)
   if (!auth) return res.status(401).json({ error: 'Not signed in or session expired. Please sign in again.' })
-  const { accessToken: token, googleId } = auth
+  const { googleId } = auth
 
   const validationError = validateInput(req.body)
   if (validationError) return res.status(400).json({ error: validationError })
 
   const { stages, geos, industries, count } = req.body
 
-  // Only increment quota AFTER we know the request is valid — failed validation should never cost quota
   const runCheck = await checkAndIncrementRuns(googleId)
   if (!runCheck.allowed) {
     return res.status(429).json({
@@ -42,11 +41,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const sheetId = await getOrCreateSheet(token)
-    await saveSheetId(googleId, sheetId)
-
-    const allContacts = await getSheetContacts(token, sheetId)
-    const existingCompanies = await getExistingCompanies(token, sheetId, allContacts)
+    const user = await getUser(googleId)
+    const existingCompanies = await getExistingCompanyNames(user.id)
     const exclusionNote = existingCompanies.length > 0
       ? `IMPORTANT: Do NOT include these companies — already contacted: ${existingCompanies.join(', ')}.` : ''
 
@@ -55,9 +51,9 @@ export default async function handler(req, res) {
 Find ${count} real ${stages.join(' or ')} B2B SaaS companies from ${geos.join(', ')} in: ${industries.join(', ')}.
 Role hierarchy: 1. Head of Marketing 2. VP Marketing 3. Director Marketing 4. CMO 5. CEO (only if owns marketing)
 Return JSON array only. Start with [ end with ]:
-[{"name":"Full Name","role":"exact current role","company":"Company Name","stage":"Series A","industry":"industry","country":"country","email":"firstname@companydomain.com","roleLevel":1,"company_win":"one real specific achievement","company_problem":"one specific marketing or scaling challenge they face now","subject_line":"subject using first name max 8 words no em dashes creates curiosity","email_body":"4 paragraphs: 1) genuine company observation 2) their specific marketing challenge 3) short intro about GTM consultancy that helped B2B SaaS cut CAC by 86 percent 4) Would love to swap notes for 20 minutes. No pitch just two marketers talking shop. No em dashes. Human tone. Under 120 words."}]`
+[{"name":"Full Name","role":"exact current role","company":"Company Name","stage":"Series A","industry":"industry","country":"country","email":"firstname@companydomain.com","company_win":"one real specific achievement","company_problem":"one specific marketing or scaling challenge they face now"}]`
 
-    const { text, usage } = await callOpenRouter(systemPrompt, userPrompt, MODELS.research, 4000)
+    const { text, usage } = await callOpenRouter(systemPrompt, userPrompt, MODELS.research, 3000)
     const prospects = extractJSON(text, 'array')
 
     if (!Array.isArray(prospects)) throw new Error('Research agent returned an unexpected format')
@@ -65,7 +61,7 @@ Return JSON array only. Start with [ end with ]:
     const filtered = []
     for (const p of prospects) {
       if (!p || !p.email || !p.name || !p.company) continue
-      const dup = await isDuplicate(token, sheetId, p.email, allContacts)
+      const dup = await isDuplicateContact(user.id, p.email)
       if (!dup) filtered.push(p)
     }
 
@@ -74,7 +70,6 @@ Return JSON array only. Start with [ end with ]:
     res.status(200).json({
       prospects: filtered,
       usage,
-      sheetId,
       existingSkipped: existingCompanies.length,
       runsToday: runCheck.used,
       runLimit: runCheck.limit
