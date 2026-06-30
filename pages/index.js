@@ -81,14 +81,33 @@ export default function Home() {
     }
 
     setAgentStatus(s => ({ ...s, observer: 'done', email: 'running' }))
+
+    if (verified.length === 0) {
+      addLog('email', `No verified prospects to save — all ${resData.prospects.length} contacts failed verification`)
+      setAgentStatus(s => ({ ...s, email: 'done' }))
+      setTotalCost(cost.toFixed(4))
+      await loadContacts()
+      setRunning(false)
+      return
+    }
+
     addLog('email', `Writing and saving ${verified.length} emails...`)
 
+    const activeSheetId = resData.sheetId || sheetId
+    let savedCount = 0
+
     for (const p of verified) {
-      await fetch('/api/save-contact', {
+      const saveRes = await fetch('/api/save-contact', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contact: p, sheetId })
+        body: JSON.stringify({ contact: p, sheetId: activeSheetId })
       })
-      addLog('email', `Saved ${p.name} to your Google Sheet`)
+      const saveData = await saveRes.json()
+      if (saveRes.ok) {
+        savedCount++
+        addLog('email', `Saved ${p.name} to your Google Sheet`)
+      } else {
+        addLog('email', `Failed to save ${p.name}: ${saveData.error || 'unknown error'}`)
+      }
     }
 
     setAgentStatus(s => ({ ...s, email: 'done' }))
