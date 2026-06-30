@@ -16,18 +16,18 @@ export default function Login() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, system-ui, sans-serif',
         padding: '2rem'
       }}>
         <div style={{ marginBottom: '2.5rem', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>Leads Genie</div>
-          <h1 style={{ fontSize: 36, fontWeight: 500, color: '#fff', lineHeight: 1.2, marginBottom: 12 }}>Find verified prospects.<br />Send emails that convert.</h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', maxWidth: 360 }}>Three AI agents — research, verify, write. All connected to your Gmail and Google Sheets.</p>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 14 }}>Leads Genie</div>
+          <h1 style={{ fontSize: 34, fontWeight: 700, color: '#fff', lineHeight: 1.18, marginBottom: 12, letterSpacing: '-0.02em' }}>Find verified prospects.<br />Send emails that convert.</h1>
+          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', maxWidth: 360, margin: '0 auto' }}>Three AI agents — research, verify, write. Connected to your Gmail.</p>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', width: '100%', maxWidth: 380 }}>
-          <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a1a', marginBottom: 6, textAlign: 'center' }}>Get started</p>
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 24, textAlign: 'center' }}>Sign in to connect your Google account. We use it to access your Gmail and create your contacts sheet.</p>
+        <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+          <p style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', marginBottom: 6, textAlign: 'center' }}>Get started</p>
+          <p style={{ fontSize: 13, color: '#6e6e73', marginBottom: 24, textAlign: 'center', lineHeight: 1.5 }}>Sign in with Google to create your prospects CRM and connect Gmail.</p>
 
           <button
             onClick={() => signIn('google', { callbackUrl: '/' })}
